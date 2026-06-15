@@ -1,0 +1,175 @@
+---
+name: amap-kml-upload
+description: 将KML文件上传至高德地图小程序(wia.amap.com)。适用于需要将地理位置数据批量导入高德地图的场景。支持KML、CSV等格式，需选择"谷歌地图"作为数据来源。
+---
+
+# 高德地图KML文件上传
+
+## 概述
+
+本Skill用于将KML格式的地理位置文件上传至高德地图小程序平台(wia.amap.com)，实现地点数据的批量导入和可视化管理。
+
+## 前置条件
+
+1. 用户已在高德地图小程序(wia.amap.com)完成登录
+2. KML文件已准备好，使用WGS-84坐标系（标准GPS坐标）
+3. 如使用GCJ-02坐标系（高德/百度坐标），需先转换为WGS-84
+
+## 坐标转换与KML生成
+
+本Skill内置了坐标转换脚本，位于 `assets/gcj02_to_wgs84_kml.py`。
+
+### 使用方法
+
+使用内置脚本快速生成KML文件：
+
+```bash
+# 单个地点
+python assets/gcj02_to_wgs84_kml.py \
+    --name "地点名称" \
+    --lng 121.427373 \
+    --lat 31.256076 \
+    --output locations.kml
+
+# 多个地点
+python assets/gcj02_to_wgs84_kml.py \
+    --name "地点1" --lng 121.427373 --lat 31.256076 \
+    --name "地点2" --lng 103.868172 --lat 36.039613 \
+    --name "地点3" --lng 114.157674 --lat 22.282416 \
+    --output locations.kml
+
+# 带地址描述
+python assets/gcj02_to_wgs84_kml.py \
+    --name "你说了算牛味馆" --lng 121.427373 --lat 31.256076 --address "华池路84号" \
+    --name "金强牛肉面" --lng 103.868172 --lat 36.039613 --address "定西路7-19号" \
+    --map-name "地点搜索" \
+    --output locations.kml
+```
+
+### 参数说明
+
+| 参数 | 说明 | 必填 |
+|------|------|------|
+| `--name` | 地点名称（可多次使用） | 是 |
+| `--lng` | GCJ-02经度（可多次使用） | 是 |
+| `--lat` | GCJ-02纬度（可多次使用） | 是 |
+| `--address` | 地址描述（可选） | 否 |
+| `--output` | 输出KML文件名 | 否，默认locations.kml |
+| `--map-name` | 地图名称 | 否，默认"地图名称" |
+| `--description` | 地图描述 | 否，默认"描述信息" |
+
+### 手动转换代码
+
+如需在代码中直接调用转换函数：
+
+```python
+from assets.gcj02_to_wgs84_kml import gcj02_to_wgs84, generate_kml
+
+# 转换单个坐标
+wgs84_lng, wgs84_lat = gcj02_to_wgs84(121.427373, 31.256076)
+
+# 批量生成KML
+locations = [
+    {"name": "地点1", "gcj_lng": 121.427373, "gcj_lat": 31.256076, "address": "地址1"},
+    {"name": "地点2", "gcj_lng": 103.868172, "gcj_lat": 36.039613, "address": "地址2"},
+]
+generate_kml(locations, output_file="locations.kml")
+```
+
+## KML文件格式
+
+标准KML格式示例：
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>地图名称</name>
+    <description>描述信息</description>
+    
+    <Placemark>
+      <name>地点名称</name>
+      <description>地点描述</description>
+      <Point>
+        <coordinates>经度,纬度,0</coordinates>
+      </Point>
+    </Placemark>
+  </Document>
+</kml>
+```
+
+## 操作步骤
+
+### 步骤1：导航到高德地图小程序
+
+```
+navigate_page(type="url", url="https://wia.amap.com/")
+```
+
+### 步骤2：确认用户已登录
+
+检查页面是否显示登录界面，如未登录则提示用户手动登录。
+
+### 步骤3：创建新地图
+
+1. 点击"创建新地图"按钮
+2. 输入地图名称
+3. 点击"创建"按钮
+
+### 步骤4：进入地图编辑页面
+
+导航到地图URL：`https://wia.amap.com/#/map?orgId={orgId}&workMapId={workMapId}`
+
+### 步骤5：打开批量导入对话框
+
+点击"批量导入"按钮
+
+### 步骤6：选择数据来源
+
+**关键步骤**：必须选择"谷歌地图"作为数据来源，否则KML文件可能无法识别。
+
+1. 点击combobox展开选项列表
+2. 选择"谷歌地图"选项
+
+### 步骤7：上传KML文件
+
+使用upload_file工具上传KML文件到上传区域。
+
+### 步骤8：等待导入完成
+
+等待显示"成功导入X个数据"提示。
+
+### 步骤9：完成导入
+
+点击"完成"按钮关闭对话框。
+
+## 注意事项
+
+1. **坐标系**：KML文件必须使用WGS-84坐标系，如使用GCJ-02需先转换
+2. **数据来源**：必须选择"谷歌地图"选项才能正确解析KML文件
+3. **文件格式**：支持xls、xlsx、kml、ovkml、csv格式
+4. **文件大小**：每次上传不超过50000行，文件大小不超过20M
+5. **重复数据**：位置编码相同的数据会被识别为重复数据
+
+## 常见问题
+
+### Q: 上传时显示"不支持的文件格式"？
+A: 请确保选择了"谷歌地图"作为数据来源，而不是默认的"高德地图(推荐)"。
+
+### Q: 坐标位置偏差很大？
+A: 可能是坐标系问题。高德地图API返回的是GCJ-02坐标，需要转换为WGS-84后再写入KML文件。
+
+### Q: 如何批量查询多个地址的坐标？
+A: 可以使用高德地图geo API批量查询，然后进行坐标转换，最后生成KML文件。
+
+## 查看导入结果
+
+**导入成功后，请按以下步骤查看：**
+
+1. 打开高德地图APP
+2. 点击底部"我的"标签
+3. 进入"地图小程序"
+4. 找到您上传的地图名称
+5. 点击即可查看所有导入的位置点，并支持随时导航到这些地点
+
+**提示：** 导入的位置数据会同步到您的高德地图账户，可以在手机端和网页端随时访问和使用导航功能。
